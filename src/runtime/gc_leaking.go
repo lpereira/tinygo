@@ -43,9 +43,7 @@ func alloc(size uintptr, layout unsafe.Pointer) unsafe.Pointer {
 		// Failed to make the heap bigger, so we must really be out of memory.
 		runtimePanic("out of memory")
 	}
-	pointer := unsafe.Pointer(addr)
-	memzero(pointer, size)
-	return pointer
+	return unsafe.Pointer(addr)
 }
 
 func realloc(ptr unsafe.Pointer, size uintptr) unsafe.Pointer {
