@@ -77,9 +77,9 @@ type hashmapBucket struct {
 }
 
 type hashmapIterator struct {
-	bucket      *hashmapBucket
-	usedSlots   uint8
-	bucketIndex uint8
+	bucket              *hashmapBucket
+	nonZeroNibbleHashes uint32
+	bucketIndex         uint8
 }
 
 func hashmapNewIterator() unsafe.Pointer {
@@ -419,14 +419,45 @@ again:
 			}
 			goto again
 		}
-		it.usedSlots = it.bucket.usedSlots
+
+		for {
+			it.nonZeroNibbleHashes = uint32HasZeroNibble(^it.bucket.nibbleHashes)
+			println("nonzeronibblehashes", uintptr(it.nonZeroNibbleHashes), uintptr(it.bucket.nibbleHashes))
+
+			if it.nonZeroNibbleHashes == 0 {
+				it.bucket = it.bucket.next
+				if it.bucket == nil {
+					goto again
+				}
+			}
+			break
+		}
 	}
 
-	slot := bits.TrailingZeros8(it.usedSlots)
-	it.usedSlots ^= 1 << slot
+	if it.nonZeroNibbleHashes == 0 {
+		it.bucket = it.bucket.next
+		if it.bucket == nil {
+			goto again
+		}
+		for {
+			it.nonZeroNibbleHashes = uint32HasZeroNibble(^it.bucket.nibbleHashes)
+			println("nonzeronibblehashes", uintptr(it.nonZeroNibbleHashes), uintptr(it.bucket.nibbleHashes))
+			if it.nonZeroNibbleHashes == 0 {
+				it.bucket = it.bucket.next
+				if it.bucket == nil {
+					goto again
+				}
+			}
+			break
+		}
+	}
 
-	memcpy(key, hashmapSlotKey(m, it.bucket, uint8(slot)), m.keySize)
-	memcpy(value, hashmapSlotValue(m, it.bucket, uint8(slot)), m.valueSize)
+	slot := uint8(bits.TrailingZeros32(it.nonZeroNibbleHashes) >> 2)
+
+	memcpy(key, hashmapSlotKey(m, it.bucket, slot), m.keySize)
+	memcpy(value, hashmapSlotValue(m, it.bucket, slot), m.valueSize)
+
+	it.nonZeroNibbleHashes &= ^(uint32(0xf) << (slot << 2))
 
 	return true
 }
