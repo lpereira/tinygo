@@ -278,6 +278,8 @@ func hashmapSet(m *hashmap, key unsafe.Pointer, value unsafe.Pointer, hash uint3
 		emptySlot = 0
 	}
 
+	println("insert slot:", emptySlot)
+
 	m.count++
 	memcpy(hashmapSlotKey(m, bucketWithEmptySlot, emptySlot), key, m.keySize)
 	memcpy(hashmapSlotValue(m, bucketWithEmptySlot, emptySlot), value, m.valueSize)
@@ -349,7 +351,6 @@ func hashmapDelete(m *hashmap, key unsafe.Pointer, hash uint32) {
 
 	// Try to find the key.
 	for bucket := m.bucket[tophash&7]; bucket != nil; bucket = bucket.next {
-
 		hasNibbleHash := uint32HasNibble(bucket.nibbleHashes, nibblehash)
 		for hasNibbleHash != 0 {
 			index := bits.TrailingZeros32(hasNibbleHash)
@@ -368,6 +369,8 @@ func hashmapDelete(m *hashmap, key unsafe.Pointer, hash uint32) {
 			}
 
 			// Found the key, delete it.
+
+			println("delete slot:", slot)
 
 			bucket.usedSlots ^= 1 << slot
 			bucket.nibbleHashes &= ^(uint32(0xf) << (slot << 2))
@@ -420,7 +423,7 @@ again:
 	}
 
 	slot := bits.TrailingZeros8(it.usedSlots)
-	it.usedSlots ^= it.usedSlots & -it.usedSlots
+	it.usedSlots ^= 1 << slot
 
 	memcpy(key, hashmapSlotKey(m, it.bucket, uint8(slot)), m.keySize)
 	memcpy(value, hashmapSlotValue(m, it.bucket, uint8(slot)), m.valueSize)
